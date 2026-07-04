@@ -1,0 +1,78 @@
+name: contract-guard
+
+# C 계약(compose/init/env)이 main 에 병합되면:
+#  1) 계약을 재추출해 직전 published 스냅샷과 구조적 비교
+#  2) 버전 bump 후 .contract/contract.json 갱신·커밋 (published)
+#  3) 영향받는 소비자에게 repository_dispatch 로 push (breaking 여부 전달)
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docker-compose.yml"
+      - "init/**"
+      - ".env.example"
+
+permissions:
+  contents: write        # .contract/contract.json 커밋
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml
+
+      - name: Extract current contract
+        run: python3 tools/infra_contract.py extract . > /tmp/new.json
+
+      - name: Compare vs published & decide fan-out
+        id: cmp
+        run: |
+          set +e
+          OLD=.contract/contract.json
+          # 소비자별 판정: exit 0=무변경 10=즉시반영 20=승인게이트
+          MATRIX=""
+          for C in RAGaaS GoJIRA; do
+            python3 tools/infra_contract.py compare "$OLD" /tmp/new.json --consumer "$C" --json > /tmp/$C.json
+            code=$?
+            echo "consumer=$C verdict=$code"
+            if [ "$code" = "20" ]; then MATRIX="$MATRIX $C:breaking"; fi
+            if [ "$code" = "10" ]; then MATRIX="$MATRIX $C:additive"; fi
+          done
+          # 전체 변경 여부 + 새 버전
+          python3 tools/infra_contract.py compare "$OLD" /tmp/new.json --json > /tmp/full.json
+          full=$?
+          NEWVER=$(python3 -c "import json;print(json.load(open('/tmp/full.json'))['new_version'])")
+          echo "changed=$([ "$full" = "0" ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          echo "newver=$NEWVER" >> "$GITHUB_OUTPUT"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+
+      - name: Publish new contract snapshot
+        if: steps.cmp.outputs.changed == 'true'
+        run: |
+          python3 -c "import json;d=json.load(open('/tmp/new.json'));json.dump({'version':'${{ steps.cmp.outputs.newver }}',**d},open('.contract/contract.json','w'),ensure_ascii=False,indent=2)"
+          git config user.name  "contract-guard[bot]"
+          git config user.email "contract-guard@users.noreply.github.com"
+          git add .contract/contract.json
+          git commit -m "chore(contract): publish ${{ steps.cmp.outputs.newver }} [skip ci]"
+          git push
+
+      - name: Fan-out to affected consumers
+        if: steps.cmp.outputs.matrix != ''
+        env:
+          # A/B repo 에 dispatch/PR 권한이 있는 PAT (repo scope). Settings > Secrets 에 등록.
+          DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+        run: |
+          OWNER=archi-duke
+          for entry in ${{ steps.cmp.outputs.matrix }}; do
+            NAME="${entry%%:*}"; KIND="${entry##*:}"
+            echo "dispatch -> $OWNER/$NAME ($KIND)"
+            curl -sS -X POST \
+              -H "Authorization: Bearer $DISPATCH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$OWNER/$NAME/dispatches" \
+              -d "{\"event_type\":\"infra-contract-update\",\"client_payload\":{\"version\":\"${{ steps.cmp.outputs.newver }}\",\"kind\":\"$KIND\"}}"
+          done

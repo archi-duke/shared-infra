@@ -1,0 +1,6 @@
+# 이 앱이 shared-infra(C) 에서 실제 의존하는 계약 표면.
+# 리스너/훅이 이 선언으로 "나와 무관한 변경"을 걸러낸다. (알림 스팸 방지)
+name: RAGaaS            # ← A repo 에서는 GoJIRA 로 교체
+services: [milvus, fuseki, neo4j, redis, mongo, minio, etcd]
+mongo_dbs: [ragaas]
+env_keys: [RAGAAS_MONGO_PASSWORD, NEO4J_PASSWORD, FUSEKI_ADMIN_PASSWORD, MINIO_ACCESS_KEY, MINIO_SECRET_KEY]

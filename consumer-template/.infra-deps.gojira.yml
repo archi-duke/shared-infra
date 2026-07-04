@@ -1,0 +1,5 @@
+# GoJIRA repo 에서는 이 파일을 .infra-deps.yml 로 사용
+name: GoJIRA
+services: [mongo, redis, gitea]
+mongo_dbs: [gojira]
+env_keys: [GOJIRA_MONGO_PASSWORD]
