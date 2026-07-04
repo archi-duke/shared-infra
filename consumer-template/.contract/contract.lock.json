@@ -62,8 +62,8 @@
     },
     "fuseki": {
       "container_name": "shared-fuseki",
-      "image": "stain/jena-fuseki:latest",
-      "image_major": "latest",
+      "image": "stain/jena-fuseki:5.1.0",
+      "image_major": "5",
       "host_ports": [
         "3030"
       ],
