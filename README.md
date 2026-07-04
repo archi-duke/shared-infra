@@ -18,7 +18,7 @@ RAGaaS(`D:\works\RAGaaS`)와 GoJIRA(`D:\Works\GoJIRA`)가 공유하는 **통합 
 | Milvus | `shared-milvus` | milvusdb/milvus:v2.3.3 | 19530, 9091 | RAGaaS |
 | ├ etcd | `shared-etcd` | quay.io/coreos/etcd:v3.5.5 | - | (Milvus 내부) |
 | └ MinIO | `shared-minio` | minio/minio:RELEASE.2023-03-20 | 9000, 9001 | (Milvus 내부) |
-| Fuseki | `shared-fuseki` | stain/jena-fuseki:latest | 3030 | RAGaaS |
+| Fuseki | `shared-fuseki` | stain/jena-fuseki:5.1.0 | 3030 | RAGaaS |
 | Neo4j | `shared-neo4j` | neo4j:5.15.0 | 7474, 7687 | RAGaaS |
 | Redis | `shared-redis` | redis:7-alpine | 6379 | RAGaaS |
 | Gitea | `shared-gitea` | gitea/gitea:latest | 3300 | GoJIRA (**이관 대기** — compose에 주석 처리됨) |
@@ -86,15 +86,31 @@ docker exec -it shared-mongo mongosh -u root -p <ROOT_PW> --eval '
 
 ## 폐쇄망(우분투 서버) 반입
 
-이 디렉토리 전체(docker-compose.yml, init/, .env)와 아래 이미지 tar를 반입:
-`mongo:8.0`, `milvusdb/milvus:v2.3.3`, `quay.io/coreos/etcd:v3.5.5`,
-`minio/minio:RELEASE.2023-03-20T20-16-18Z`, `stain/jena-fuseki:latest`,
-`neo4j:5.15.0`, `redis:7-alpine` (+ Gitea 이관 시 `gitea/gitea`)
+SSH만 가능한 폐쇄망 서버 기준. `deploy/` 스크립트 3개로 일원화되어 있습니다.
+
+```bash
+# 개발 PC의 WSL에서:
+./deploy/package-offline.sh                   # 1) dist/에 오프라인 번들 tar 생성
+./deploy/deploy-to-server.sh user@서버주소     # 2) SSH 전송 + 원격 설치까지 자동 실행
+```
+
+수동으로 나눠 할 경우: 번들 tar를 `scp`로 올린 뒤 서버에서
+`tar -xf 번들.tar && cd 번들디렉토리 && ./install-offline.sh`.
+
+번들 내용물: 이미지 전체 tar.gz(공유 레이어 중복 제거) + docker-compose.yml +
+init/ + .env(있으면, 없으면 .env.example) + install-offline.sh.
+
+**서버 전제 조건**: Docker Engine + docker compose 플러그인.
+없으면 Ubuntu용 `.deb`(docker-ce, docker-ce-cli, containerd.io,
+docker-compose-plugin)를 별도 반입해 `dpkg -i`로 설치.
+
+참고: Neo4j의 APOC 플러그인은 이미지에 내장된 core 버전을 사용하므로
+폐쇄망에서도 별도 다운로드 없이 동작합니다.
 
 기동 순서: **shared-infra → RAGaaS → GoJIRA** (앱 순서는 무관)
 
 ## 알려진 이슈 / TODO
 
-- `stain/jena-fuseki:latest`: 서드파티 이미지, 갱신 중단 상태 — 공식 배포판 기반
-  자체 이미지로 교체 검토. 반입 시 현재 캐시본을 버전 태그로 re-tag 하여 save.
+- `stain/jena-fuseki`: 서드파티 이미지, 갱신 중단 상태 — 공식 배포판 기반
+  자체 이미지로 교체 검토. (반입용 버전 고정 완료: latest → `5.1.0` re-tag)
 - Gitea 이관: GoJIRA 측 확인 후 compose 주석 해제 + 기존 볼륨 데이터 승계 필요.

@@ -103,8 +103,9 @@ services:
   # ── Graph DB (RAGaaS 사용) ─────────────────────────────────────────────
   fuseki:
     # TODO: 서드파티 이미지 + 갱신 중단 상태 — 공식 배포판 기반 자체 이미지로 교체 검토.
-    # 폐쇄망 반입 시 현재 로컬에 캐시된 latest를 버전 태그로 re-tag 하여 save 할 것.
-    image: stain/jena-fuseki:latest
+    # 폐쇄망 반입용으로 latest(=Fuseki 5.1.0)를 5.1.0 태그로 고정함.
+    # 로컬에 태그가 없으면: docker tag stain/jena-fuseki:latest stain/jena-fuseki:5.1.0
+    image: stain/jena-fuseki:5.1.0
     container_name: shared-fuseki
     environment:
       - ADMIN_PASSWORD=${FUSEKI_ADMIN_PASSWORD:-admin}
