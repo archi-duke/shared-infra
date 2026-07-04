@@ -1,0 +1,94 @@
+name: infra-contract-listener
+
+# C 의 repository_dispatch(infra-contract-update) 수신 시,
+# 또는 스케줄/수동으로 C 계약과 로컬 lock 을 비교한다.
+#  - 비파괴(additive) => lock 즉시 갱신 + 커밋 (즉시 반영, 사람 개입 없음)
+#  - 파괴적(breaking) => 영향 스캔 결과를 붙인 PR 을 열고 대기 (Duke 승인 게이트)
+on:
+  repository_dispatch:
+    types: [infra-contract-update]
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 * * * *"       # catch-up: 오프라인 구간 보정
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  INFRA_RAW: https://raw.githubusercontent.com/archi-duke/shared-infra/main/.contract/contract.json
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml
+
+      - name: Resolve app name
+        id: app
+        run: echo "name=$(python3 -c "import yaml;print(yaml.safe_load(open('.infra-deps.yml'))['name'])")" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch published contract from C
+        run: curl -sSfL "$INFRA_RAW" -o /tmp/pub.json
+
+      - name: Compare lock vs published (this app only)
+        id: cmp
+        run: |
+          set +e
+          python3 tools/infra_contract.py compare .contract/contract.lock.json /tmp/pub.json \
+            --consumer "${{ steps.app.outputs.name }}" --json > /tmp/report.json
+          echo "verdict=$?" >> "$GITHUB_OUTPUT"
+          echo "newver=$(python3 -c "import json;print(json.load(open('/tmp/report.json'))['new_version'])")" >> "$GITHUB_OUTPUT"
+          cat /tmp/report.json
+
+      # ── 즉시 반영: 비파괴만 있을 때 ──
+      - name: Auto-apply (additive)
+        if: steps.cmp.outputs.verdict == '10'
+        run: |
+          cp /tmp/pub.json .contract/contract.lock.json
+          {
+            echo "## infra ${{ steps.cmp.outputs.newver }} (auto-applied $(date -u +%FT%TZ))"
+            python3 -c "import json;[print('- ',c['service']+'.'+c['field'],':',c['old'],'->',c['new']) for c in json.load(open('/tmp/report.json'))['changes']]"
+            echo
+          } >> CHANGELOG-infra.md
+          git config user.name  "infra-listener[bot]"
+          git config user.email "infra-listener@users.noreply.github.com"
+          git add .contract/contract.lock.json CHANGELOG-infra.md
+          git commit -m "chore(infra): adopt contract ${{ steps.cmp.outputs.newver }} (additive)"
+          git push
+
+      # ── 승인 게이트: 파괴적 변경 ──
+      - name: Impact scan (breaking)
+        if: steps.cmp.outputs.verdict == '20'
+        run: bash .claude/hooks/scan_impact.sh /tmp/report.json > /tmp/scan.md || true
+
+      - name: Open approval PR (breaking)
+        if: steps.cmp.outputs.verdict == '20'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BR="infra/contract-${{ steps.cmp.outputs.newver }}"
+          git config user.name  "infra-listener[bot]"
+          git config user.email "infra-listener@users.noreply.github.com"
+          git checkout -b "$BR"
+          cp /tmp/pub.json .contract/contract.lock.json
+          git add .contract/contract.lock.json
+          git commit -m "infra: BREAKING contract ${{ steps.cmp.outputs.newver }} — needs approval"
+          git push -u origin "$BR" --force
+          {
+            echo "## shared-infra ${{ steps.cmp.outputs.newver }} — 파괴적 변경 (승인 필요)"
+            echo
+            echo "### 변경"
+            python3 -c "import json;[print('- **'+('BREAKING' if c['breaking'] else 'additive')+'** ',c['service']+'.'+c['field'],':',c['old'],'->',c['new'],'—',c['reason']) for c in json.load(open('/tmp/report.json'))['changes']]"
+            echo; echo "### 우리 코드 영향 (자동 스캔)"; cat /tmp/scan.md 2>/dev/null || echo "_스캔 결과 없음_"
+            echo; echo "> 이 PR 을 **머지하면 lock 이 갱신되고 변경을 수용**합니다. 반려하려면 close."
+          } > /tmp/pr.md
+          gh pr create --title "infra: contract ${{ steps.cmp.outputs.newver }} (BREAKING, 승인 필요)" \
+                       --body-file /tmp/pr.md --label "upstream:shared-infra,needs-approval" \
+                       --head "$BR" || \
+          gh pr create --title "infra: contract ${{ steps.cmp.outputs.newver }} (BREAKING, 승인 필요)" \
+                       --body-file /tmp/pr.md --head "$BR"
