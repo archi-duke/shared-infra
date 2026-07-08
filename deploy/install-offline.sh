@@ -46,10 +46,10 @@ docker compose ps
 cat <<'EOF'
 
 설치 완료. 확인:
-  - MongoDB : localhost:27017
-  - Milvus  : localhost:19530 (헬스: localhost:9091)
-  - MinIO   : localhost:9000 (콘솔 9001)
-  - Fuseki  : http://localhost:3030
-  - Neo4j   : http://localhost:7474 (bolt 7687)
-  - Redis   : localhost:6379
+  - MongoDB : localhost:44370
+  - Milvus  : localhost:44380 (헬스: localhost:44381)
+  - MinIO   : localhost:44385 (콘솔 44386)
+  - Fuseki  : http://localhost:44390
+  - Neo4j   : http://localhost:44395 (bolt 44396)
+  - Redis   : localhost:44375
 EOF
