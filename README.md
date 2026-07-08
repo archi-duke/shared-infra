@@ -12,16 +12,21 @@ RAGaaS(`D:\works\RAGaaS`)와 GoJIRA(`D:\Works\GoJIRA`)가 공유하는 **통합 
 
 ## 제공 서비스
 
-| 서비스 | 컨테이너 | 이미지 | 호스트 포트 | 사용 프로젝트 |
-|---|---|---|---|---|
-| MongoDB | `shared-mongo` | mongo:8.0 | 27017 | 공용 (DB 분리) |
-| Milvus | `shared-milvus` | milvusdb/milvus:v2.3.3 | 19530, 9091 | RAGaaS |
-| ├ etcd | `shared-etcd` | quay.io/coreos/etcd:v3.5.5 | - | (Milvus 내부) |
-| └ MinIO | `shared-minio` | minio/minio:RELEASE.2023-03-20 | 9000, 9001 | (Milvus 내부) |
-| Fuseki | `shared-fuseki` | stain/jena-fuseki:5.1.0 | 3030 | RAGaaS |
-| Neo4j | `shared-neo4j` | neo4j:5.15.0 | 7474, 7687 | RAGaaS |
-| Redis | `shared-redis` | redis:7-alpine | 6379 | RAGaaS |
-| Gitea | `shared-gitea` | gitea/gitea:latest | 3300 | GoJIRA (**이관 대기** — compose에 주석 처리됨) |
+| 서비스 | 컨테이너 | 이미지 | 호스트 포트 | 컨테이너 내부 포트 | 사용 프로젝트 |
+|---|---|---|---|---|---|
+| MongoDB | `shared-mongo` | mongo:8.0 | 44370 | 27017 | 공용 (DB 분리) |
+| Milvus | `shared-milvus` | milvusdb/milvus:v2.3.3 | 44380, 44381 | 19530, 9091 | RAGaaS |
+| ├ etcd | `shared-etcd` | quay.io/coreos/etcd:v3.5.5 | - | 2379 | (Milvus 내부) |
+| └ MinIO | `shared-minio` | minio/minio:RELEASE.2023-03-20 | 44385, 44386 | 9000, 9001 | (Milvus 내부) |
+| Fuseki | `shared-fuseki` | stain/jena-fuseki:5.1.0 | 44390 | 3030 | RAGaaS |
+| Neo4j | `shared-neo4j` | neo4j:5.15.0 | 44395, 44396 | 7474, 7687 | RAGaaS |
+| Redis | `shared-redis` | redis:7-alpine | 44375 | 6379 | RAGaaS |
+| Gitea | `shared-gitea` | gitea/gitea:latest | 3300 | 3000 | GoJIRA (**이관 대기** — compose에 주석 처리됨) |
+
+호스트 포트는 사내 폐쇄망 방화벽 정책에 맞춰 `44370`대 로 고정 배정한 것이며,
+**컨테이너 내부 포트는 변경하지 않았다** — `shared-net` 안에서 서비스 간 통신(예:
+Milvus → MinIO)은 영향 없음. 아래 "앱에서 접속하는 방법"의 `shared-net` 내부 주소는
+그대로 유효하다.
 
 네트워크: **`shared-net`** — 앱 compose에서 `external: true`로 조인하면
 위 컨테이너 이름으로 접근 가능. 앱 간 API 호출도 이 네트워크 사용
@@ -62,7 +67,7 @@ networks:
 | Neo4j | `bolt://shared-neo4j:7687` |
 | Redis | `redis://shared-redis:6379/0` |
 
-호스트(컨테이너 밖)에서는 `localhost:<포트>`로 접근합니다.
+호스트(컨테이너 밖)에서는 `localhost:<호스트 포트>`(위 표의 44370대 포트)로 접근합니다.
 
 ## 데이터 관리
 

@@ -24,7 +24,7 @@ services:
       RAGAAS_MONGO_PASSWORD: ${RAGAAS_MONGO_PASSWORD:-ragaas-dev-pass}
       GOJIRA_MONGO_PASSWORD: ${GOJIRA_MONGO_PASSWORD:-gojira-dev-pass}
     ports:
-      - "27017:27017"
+      - "44370:27017"
     volumes:
       - shared-mongo-data:/data/db
       - ./init:/docker-entrypoint-initdb.d:ro
@@ -66,8 +66,8 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
     command: minio server /minio_data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "44385:9000"
+      - "44386:9001"
     volumes:
       - shared-minio-data:/minio_data
     networks:
@@ -89,8 +89,8 @@ services:
       MINIO_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
     ports:
-      - "19530:19530"
-      - "9091:9091"
+      - "44380:19530"
+      - "44381:9091"
     volumes:
       - shared-milvus-data:/var/lib/milvus
     depends_on:
@@ -111,7 +111,7 @@ services:
       - ADMIN_PASSWORD=${FUSEKI_ADMIN_PASSWORD:-admin}
       - JVM_ARGS=-Xmx2g
     ports:
-      - "3030:3030"
+      - "44390:3030"
     volumes:
       - shared-fuseki-data:/fuseki
     networks:
@@ -128,8 +128,8 @@ services:
       - NEO4J_apoc_import_file_use__neo4j__config=true
       - NEO4J_PLUGINS=["apoc"]
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "44395:7474"
+      - "44396:7687"
     volumes:
       - shared-neo4j-data:/data
       - shared-neo4j-logs:/logs
@@ -144,7 +144,7 @@ services:
     image: redis:7-alpine
     container_name: shared-redis
     ports:
-      - "6379:6379"
+      - "44375:6379"
     volumes:
       - shared-redis-data:/data
     networks:
