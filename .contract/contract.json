@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "network": [
     "shared-net"
   ],
@@ -9,7 +9,7 @@
       "image": "mongo:8.0",
       "image_major": "8",
       "host_ports": [
-        "27017"
+        "44370"
       ],
       "internal_ports": [
         "27017"
@@ -33,8 +33,8 @@
       "image": "minio/minio:RELEASE.2023-03-20T20-16-18Z",
       "image_major": "RELEASE.2023-03-20T20-16-18Z",
       "host_ports": [
-        "9000",
-        "9001"
+        "44385",
+        "44386"
       ],
       "internal_ports": [
         "9000",
@@ -49,8 +49,8 @@
       "image": "milvusdb/milvus:v2.3.3",
       "image_major": "2",
       "host_ports": [
-        "19530",
-        "9091"
+        "44380",
+        "44381"
       ],
       "internal_ports": [
         "19530",
@@ -65,7 +65,7 @@
       "image": "stain/jena-fuseki:5.1.0",
       "image_major": "5",
       "host_ports": [
-        "3030"
+        "44390"
       ],
       "internal_ports": [
         "3030"
@@ -79,8 +79,8 @@
       "image": "neo4j:5.15.0",
       "image_major": "5",
       "host_ports": [
-        "7474",
-        "7687"
+        "44395",
+        "44396"
       ],
       "internal_ports": [
         "7474",
@@ -95,7 +95,7 @@
       "image": "redis:7-alpine",
       "image_major": "7",
       "host_ports": [
-        "6379"
+        "44375"
       ],
       "internal_ports": [
         "6379"
