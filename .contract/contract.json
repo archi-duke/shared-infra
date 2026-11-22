@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "network": [
     "shared-net"
   ],
@@ -99,6 +99,20 @@
       ],
       "internal_ports": [
         "6379"
+      ],
+      "networks": [
+        "shared-net"
+      ]
+    },
+    "gitea": {
+      "container_name": "shared-gitea",
+      "image": "gitea/gitea:1.25.5",
+      "image_major": "1",
+      "host_ports": [
+        "44372"
+      ],
+      "internal_ports": [
+        "3000"
       ],
       "networks": [
         "shared-net"
