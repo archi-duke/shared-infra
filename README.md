@@ -21,7 +21,7 @@ RAGaaS(`D:\works\RAGaaS`)와 GoJIRA(`D:\Works\GoJIRA`)가 공유하는 **통합 
 | Fuseki | `shared-fuseki` | stain/jena-fuseki:5.1.0 | 44390 | 3030 | RAGaaS |
 | Neo4j | `shared-neo4j` | neo4j:5.15.0 | 44395, 44396 | 7474, 7687 | RAGaaS |
 | Redis | `shared-redis` | redis:7-alpine | 44375 | 6379 | RAGaaS |
-| Gitea | `shared-gitea` | gitea/gitea:latest | 3300 | 3000 | GoJIRA (**이관 대기** — compose에 주석 처리됨) |
+| Gitea | `shared-gitea` | gitea/gitea:1.25.5 | 44372 | 3000 | GoJIRA |
 
 호스트 포트는 사내 폐쇄망 방화벽 정책에 맞춰 `44370`대 로 고정 배정한 것이며,
 **컨테이너 내부 포트는 변경하지 않았다** — `shared-net` 안에서 서비스 간 통신(예:
@@ -118,4 +118,5 @@ docker-compose-plugin)를 별도 반입해 `dpkg -i`로 설치.
 
 - `stain/jena-fuseki`: 서드파티 이미지, 갱신 중단 상태 — 공식 배포판 기반
   자체 이미지로 교체 검토. (반입용 버전 고정 완료: latest → `5.1.0` re-tag)
-- Gitea 이관: GoJIRA 측 확인 후 compose 주석 해제 + 기존 볼륨 데이터 승계 필요.
+- Gitea 접근정책: 가입·익명열람이 열려 있음(기본값) — 필요 시
+  `GITEA__service__DISABLE_REGISTRATION` / `GITEA__service__REQUIRE_SIGNIN_VIEW` 설정.

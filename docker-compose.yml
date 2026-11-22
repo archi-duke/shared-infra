@@ -152,26 +152,28 @@ services:
     restart: unless-stopped
 
   # ── Git 서버 (GoJIRA 사용) ─────────────────────────────────────────────
-  # GoJIRA 루트 docker-compose.yml 의 gitea 를 이관 예정 — GoJIRA 측 확인 후 활성화.
-  # 기존 gitea-data 볼륨(gojira_gitea-data 등) 승계 필요. docs/shared-infra-handoff.md 참조.
-  # gitea:
-  #   image: gitea/gitea:latest
-  #   container_name: shared-gitea
-  #   environment:
-  #     - USER_UID=1000
-  #     - USER_GID=1000
-  #     - GITEA__database__DB_TYPE=sqlite3
-  #     - GITEA__server__ROOT_URL=http://localhost:3300/
-  #     - GITEA__server__HTTP_PORT=3000
-  #     - GITEA__service__DISABLE_REGISTRATION=false
-  #     - GITEA__service__REQUIRE_SIGNIN_VIEW=false
-  #   ports:
-  #     - "3300:3000"
-  #   volumes:
-  #     - shared-gitea-data:/data
-  #   networks:
-  #     - shared-net
-  #   restart: unless-stopped
+  # 2026-11-17 Mac gojira-gitea 데이터 승계 완료 (.115:44372).
+  # 가입·익명열람은 현재 열림(기본값) — 닫으려면 GITEA__service__DISABLE_REGISTRATION=true,
+  # GITEA__service__REQUIRE_SIGNIN_VIEW=true 추가.
+  gitea:
+    image: gitea/gitea:1.25.5
+    container_name: shared-gitea
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__server__DOMAIN=192.168.219.115
+      - GITEA__server__ROOT_URL=http://192.168.219.115:44372/
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__server__DISABLE_SSH=true
+      - GITEA__server__START_SSH_SERVER=false
+    ports:
+      - "44372:3000"
+    volumes:
+      - shared-gitea-data:/data
+    networks:
+      - shared-net
+    restart: unless-stopped
 
 volumes:
   shared-mongo-data:
@@ -184,7 +186,7 @@ volumes:
   shared-neo4j-import:
   shared-neo4j-plugins:
   shared-redis-data:
-  # shared-gitea-data:
+  shared-gitea-data:
 
 networks:
   shared-net:
