@@ -2,7 +2,7 @@
 
 ## 증상
 
-Mac 등 LAN 클라이언트에서 `192.168.219.115:<port>` 로 shared-infra 서비스(mongo 등)에
+Mac 등 LAN 클라이언트에서 `192.168.219.108:<port>`(2026-11-22 새 PC 이전 후 IP, 이전 .115) 로 shared-infra 서비스(mongo 등)에
 접속하면:
 
 - TCP 핸드셰이크(nc)는 **OPEN** 인데
@@ -14,7 +14,7 @@ Windows 로컬(`docker exec ... ping`)과 docker 내부 네트워크는 정상�
 ## 근본 원인
 
 ```
-[Mac] → 192.168.219.115:PORT (Windows LAN)
+[Mac] → 192.168.219.108:PORT (Windows LAN)
       → netsh portproxy: Listen 0.0.0.0:PORT → Connect 127.0.0.1:PORT   ← 문제
       → (원래 WSL2 localhost-forwarding mirror 가 127.0.0.1:PORT 에서 받아 WSL 로 넘겨야 함)
       → WSL 172.x:PORT → docker → 컨테이너
@@ -43,7 +43,7 @@ connect 대상이 리스너와 다른 주소라 자기루프도 원천 불가능
 
 ```powershell
 $ip = ((wsl -d Ubuntu-24.04 -- hostname -I) -split '\s+')[0]      # 현재 WSL IP
-foreach ($p in 44370,44375,44380,44381,44385,44386,44390,44395,44396) {
+foreach ($p in 44370,44372,44375,44380,44381,44385,44386,44390,44395,44396) {
   netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=$p 2>$null | Out-Null
   netsh interface portproxy add    v4tov4 listenaddress=0.0.0.0 listenport=$p connectaddress=$ip connectport=$p
 }
@@ -55,13 +55,28 @@ netsh interface portproxy show v4tov4    # 전부 WSL IP(172.x)를 가리키면 
 ### 언제 다시 실행해야 하나
 
 WSL VM 이 재시작되어 WSL IP 가 바뀔 때만 — 즉 **재부팅** 또는 **`wsl --shutdown`** 이후.
-(이 PC 는 재부팅 주기가 길어 드물다.) 그때 위 블록을 그대로 한 번 더 실행하면 된다.
+
+- **재부팅**: 자동. 예약작업 `shared-infra-portproxy-sync`(로그온 시, 최고 권한)가
+  [`tools/wsl-portproxy-sync.ps1`](../tools/wsl-portproxy-sync.ps1) 을 실행해 WSL IP 로 규칙을 맞춘다.
+  로그: `%LOCALAPPDATA%\shared-infra\portproxy-sync.log`.
+- **`wsl --shutdown` 후**: 자동 아님. keepalive 를 되살린 뒤(아래) 작업을 수동 실행:
+  `Start-ScheduledTask -TaskName 'shared-infra-portproxy-sync'` (권한 불필요).
+
+예약작업 등록(관리자 PowerShell, 1회):
+
+```powershell
+$a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\Works\shared-infra\tools\wsl-portproxy-sync.ps1"'
+$t = New-ScheduledTaskTrigger -AtLogOn -User "$env:COMPUTERNAME\$env:USERNAME"; $t.Delay = 'PT30S'
+$p = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+$s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
+Register-ScheduledTask -TaskName 'shared-infra-portproxy-sync' -Action $a -Trigger $t -Principal $p -Settings $s -Force
+```
 
 ### 검증 (권한 불필요)
 
 ```powershell
 # Mac 과 동일한 LAN 경로로 실제 wire 접속
-wsl -d Ubuntu-24.04 -- docker run --rm mongo:8.0 mongosh 'mongodb://192.168.219.115:44370' --quiet --eval 'db.runCommand({ping:1})'
+wsl -d Ubuntu-24.04 -- docker run --rm mongo:8.0 mongosh 'mongodb://192.168.219.108:44370' --quiet --eval 'db.runCommand({ping:1})'
 ```
 
 ## 선행 점검 — WSL VM 이 떠 있는가 (keepalive)
@@ -82,8 +97,7 @@ Start-ScheduledTask -TaskName 'GoJIRA-WSL-Keepalive'
 주의: `wsl --shutdown` 을 수동 실행하면 이 keepalive 세션도 함께 죽는다. 로그온 전까지
 자동 복구되지 않으므로, 실행했다면 위 `Start-ScheduledTask` 로 즉시 되살릴 것.
 
-## 참고 — 왜 예약작업(자동화)으로 안 갔나
+## 참고 — 왜 주기 폴링은 안 하나
 
-재부팅 시 IP 변동까지 자동 처리하려면 "로그온+주기 실행으로 portproxy 를 재구성하는
-예약작업"을 쓸 수 있으나, 이 PC 는 재부팅이 드물어(수 주 단위) 상시 폴링 장치는 과하다.
-드문 재부팅 때 위 블록을 한 번 재실행하는 편이 단순하고 충분하다.
+로그온 시 1회 동기화만 한다. 절전/재개는 WSL IP 를 바꾸지 않으므로 상시 폴링은 과하다.
+`wsl --shutdown` 같은 수동 재시작 뒤에만 위 `Start-ScheduledTask` 로 한 번 더 돌리면 된다.
