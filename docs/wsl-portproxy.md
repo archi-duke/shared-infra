@@ -55,7 +55,22 @@ netsh interface portproxy show v4tov4    # 전부 WSL IP(172.x)를 가리키면 
 ### 언제 다시 실행해야 하나
 
 WSL VM 이 재시작되어 WSL IP 가 바뀔 때만 — 즉 **재부팅** 또는 **`wsl --shutdown`** 이후.
-(이 PC 는 재부팅 주기가 길어 드물다.) 그때 위 블록을 그대로 한 번 더 실행하면 된다.
+
+- **재부팅**: 자동. 예약작업 `shared-infra-portproxy-sync`(로그온 시, 최고 권한)가
+  [`tools/wsl-portproxy-sync.ps1`](../tools/wsl-portproxy-sync.ps1) 을 실행해 WSL IP 로 규칙을 맞춘다.
+  로그: `%LOCALAPPDATA%\shared-infra\portproxy-sync.log`.
+- **`wsl --shutdown` 후**: 자동 아님. keepalive 를 되살린 뒤(아래) 작업을 수동 실행:
+  `Start-ScheduledTask -TaskName 'shared-infra-portproxy-sync'` (권한 불필요).
+
+예약작업 등록(관리자 PowerShell, 1회):
+
+```powershell
+$a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\Works\shared-infra\tools\wsl-portproxy-sync.ps1"'
+$t = New-ScheduledTaskTrigger -AtLogOn -User "$env:COMPUTERNAME\$env:USERNAME"; $t.Delay = 'PT30S'
+$p = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+$s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
+Register-ScheduledTask -TaskName 'shared-infra-portproxy-sync' -Action $a -Trigger $t -Principal $p -Settings $s -Force
+```
 
 ### 검증 (권한 불필요)
 
@@ -82,8 +97,7 @@ Start-ScheduledTask -TaskName 'GoJIRA-WSL-Keepalive'
 주의: `wsl --shutdown` 을 수동 실행하면 이 keepalive 세션도 함께 죽는다. 로그온 전까지
 자동 복구되지 않으므로, 실행했다면 위 `Start-ScheduledTask` 로 즉시 되살릴 것.
 
-## 참고 — 왜 예약작업(자동화)으로 안 갔나
+## 참고 — 왜 주기 폴링은 안 하나
 
-재부팅 시 IP 변동까지 자동 처리하려면 "로그온+주기 실행으로 portproxy 를 재구성하는
-예약작업"을 쓸 수 있으나, 이 PC 는 재부팅이 드물어(수 주 단위) 상시 폴링 장치는 과하다.
-드문 재부팅 때 위 블록을 한 번 재실행하는 편이 단순하고 충분하다.
+로그온 시 1회 동기화만 한다. 절전/재개는 WSL IP 를 바꾸지 않으므로 상시 폴링은 과하다.
+`wsl --shutdown` 같은 수동 재시작 뒤에만 위 `Start-ScheduledTask` 로 한 번 더 돌리면 된다.
