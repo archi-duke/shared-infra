@@ -2,7 +2,7 @@
 
 ## 증상
 
-Mac 등 LAN 클라이언트에서 `192.168.219.115:<port>` 로 shared-infra 서비스(mongo 등)에
+Mac 등 LAN 클라이언트에서 `192.168.219.108:<port>`(2026-11-22 새 PC 이전 후 IP, 이전 .115) 로 shared-infra 서비스(mongo 등)에
 접속하면:
 
 - TCP 핸드셰이크(nc)는 **OPEN** 인데
@@ -14,7 +14,7 @@ Windows 로컬(`docker exec ... ping`)과 docker 내부 네트워크는 정상�
 ## 근본 원인
 
 ```
-[Mac] → 192.168.219.115:PORT (Windows LAN)
+[Mac] → 192.168.219.108:PORT (Windows LAN)
       → netsh portproxy: Listen 0.0.0.0:PORT → Connect 127.0.0.1:PORT   ← 문제
       → (원래 WSL2 localhost-forwarding mirror 가 127.0.0.1:PORT 에서 받아 WSL 로 넘겨야 함)
       → WSL 172.x:PORT → docker → 컨테이너
@@ -43,7 +43,7 @@ connect 대상이 리스너와 다른 주소라 자기루프도 원천 불가능
 
 ```powershell
 $ip = ((wsl -d Ubuntu-24.04 -- hostname -I) -split '\s+')[0]      # 현재 WSL IP
-foreach ($p in 44370,44375,44380,44381,44385,44386,44390,44395,44396) {
+foreach ($p in 44370,44372,44375,44380,44381,44385,44386,44390,44395,44396) {
   netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=$p 2>$null | Out-Null
   netsh interface portproxy add    v4tov4 listenaddress=0.0.0.0 listenport=$p connectaddress=$ip connectport=$p
 }
@@ -61,7 +61,7 @@ WSL VM 이 재시작되어 WSL IP 가 바뀔 때만 — 즉 **재부팅** 또는
 
 ```powershell
 # Mac 과 동일한 LAN 경로로 실제 wire 접속
-wsl -d Ubuntu-24.04 -- docker run --rm mongo:8.0 mongosh 'mongodb://192.168.219.115:44370' --quiet --eval 'db.runCommand({ping:1})'
+wsl -d Ubuntu-24.04 -- docker run --rm mongo:8.0 mongosh 'mongodb://192.168.219.108:44370' --quiet --eval 'db.runCommand({ping:1})'
 ```
 
 ## 선행 점검 — WSL VM 이 떠 있는가 (keepalive)

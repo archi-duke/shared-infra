@@ -152,7 +152,7 @@ services:
     restart: unless-stopped
 
   # ── Git 서버 (GoJIRA 사용) ─────────────────────────────────────────────
-  # 2026-11-17 Mac gojira-gitea 데이터 승계 완료 (.115:44372).
+  # 2026-11-17 Mac gojira-gitea 데이터 승계 완료. 2026-11-22 새 PC 이전으로 호스트 IP .115 → .108.
   # 가입·익명열람은 현재 열림(기본값) — 닫으려면 GITEA__service__DISABLE_REGISTRATION=true,
   # GITEA__service__REQUIRE_SIGNIN_VIEW=true 추가.
   gitea:
@@ -162,8 +162,8 @@ services:
       - USER_UID=1000
       - USER_GID=1000
       - GITEA__database__DB_TYPE=sqlite3
-      - GITEA__server__DOMAIN=192.168.219.115
-      - GITEA__server__ROOT_URL=http://192.168.219.115:44372/
+      - GITEA__server__DOMAIN=192.168.219.108
+      - GITEA__server__ROOT_URL=http://192.168.219.108:44372/
       - GITEA__server__HTTP_PORT=3000
       - GITEA__server__DISABLE_SSH=true
       - GITEA__server__START_SSH_SERVER=false
