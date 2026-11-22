@@ -135,6 +135,10 @@ services:
       - shared-neo4j-logs:/logs
       - shared-neo4j-import:/var/lib/neo4j/import
       - shared-neo4j-plugins:/plugins
+    # 비정상 종료(WSL VM 셧다운 등) 후 컨테이너 레이어에 남은 neo4j.pid 때문에
+    # "Neo4j is already running (pid:7)" 재시작 루프가 나는 것을 방지.
+    tmpfs:
+      - /var/lib/neo4j/run
     networks:
       - shared-net
     restart: unless-stopped
